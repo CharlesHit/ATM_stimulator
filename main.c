@@ -7,6 +7,8 @@
 #include <sys/wait.h>
 #include "client.h"
 
+# define DEPOSITOR 0 // depositor is client 0
+
 int deposit_queue[1024];
 int index_deposit = 0;
 int index_accs = 0;
@@ -14,7 +16,7 @@ int index_accs = 0;
 
 char str[64];
 
-void read_by_line ()
+void read_file ()
 {
 	char string_to_id[64];
 	while ( str[0] == 'a' )
@@ -55,63 +57,58 @@ void read_by_line ()
 		// acc * init_acc ( int id, const char* type, int fd, int fw, int ft, int MAX, int over_fee, int overAllowed, int over_Draft_fee )
 		acc * a = init_acc(id, account_type, fd, wd, td, trans, overfee, isOver, over_draft_fee);
 		accs[id] = a;
-		id > index_accs? index_accs = id : id;
+		id > index_accs ? index_accs = id : id;
 		scanf("%s", str);
 	}
 
-	while (str[0] == 'd')
+	// the way do with d is exactly same as do with cli. A good optimization
+	while ( str[0] == 'd' )
 	{
-		char c = '0'; char d = '0';
-		while (c!='\n' && d!='\n')
+		int id = DEPOSITOR; // depositor is always client 0
+		char c;
+		scanf("%s%c", str, &c);
+		while ( c != '\n' )
 		{
 			scanf("%s%c", str, &c);
-			if(c == 0)
-				break;
-			scanf("%s%c", str, &d);
-			if(d == 0)
-				break;
-			int id = atoi(memcpy(string_to_id, str + 1, sizeof(str)));
-			if(id == 0)
-				break;
+			memcpy(string_to_id, str + 1, sizeof(str));
+			int acc_id = atoi(string_to_id);
 			scanf("%s%c", str, &c);
-			int value = atoi(str);
-
-			deposit_queue[index_deposit++] = id;
-			deposit_queue[index_deposit++] = value;
+			int amount = atoi(str);
+			trans_add(clis[id], 'd', acc_id, ERROR, amount);
+			if ( c == 0 || c == '\n' )
+				break;
+			else
+				scanf("%s%c", str, &c);
 		}
 		scanf("%s", str);
 	}
 
-	while (str[0] == 'c')
+	while ( str[0] == 'c' )
 	{
 		int id = atoi(memcpy(string_to_id, str + 1, sizeof(str)));
 		// update id
 		id > index_clients ? index_clients = id : id;
 		char c;
 		scanf("%s%c", str, &c);
-		while (c!='\n')
+		while ( c != '\n' )
 		{
-			if(str[0] == 'd')
+			if ( str[0] == 'd' )
 			{
 				scanf("%s%c", str, &c);
 				memcpy(string_to_id, str + 1, sizeof(str));
 				int acc_id = atoi(string_to_id);
 				scanf("%s%c", str, &c);
 				int amount = atoi(str);
-				trans_add(clis[id], 'd', acc_id, -1, amount);
-			}
-
-			else if(str[0] == 'w')
+				trans_add(clis[id], 'd', acc_id, ERROR, amount);
+			} else if ( str[0] == 'w' )
 			{
 				scanf("%s%c", str, &c);
 				memcpy(string_to_id, str + 1, sizeof(str));
 				int acc_id = atoi(string_to_id);
 				scanf("%s%c", str, &c);
 				int amount = atoi(str);
-				trans_add(clis[id], 'w', acc_id, -1, amount);
-			}
-
-			else if(str[0] == 't')
+				trans_add(clis[id], 'w', acc_id, ERROR, amount);
+			} else if ( str[0] == 't' )
 			{
 				scanf("%s%c", str, &c);
 				int acc_id = atoi(memcpy(string_to_id, str + 1, sizeof(str)));
@@ -119,9 +116,10 @@ void read_by_line ()
 				int acc_id_2 = atoi(memcpy(string_to_id, str + 1, sizeof(str)));
 				scanf("%s%c", str, &c);
 				int amount = atoi(str);
+
 				trans_add(clis[id], 't', acc_id, acc_id_2, amount);
 			}
-			if(c == 0 || c == '\n')
+			if ( c == 0 || c == '\n' )
 				break;
 			else
 				scanf("%s%c", str, &c);
@@ -132,22 +130,34 @@ void read_by_line ()
 
 int main ()
 {
-
+	// initialize the client array
 	init_clis(MAX_CLIENT);
 
 	scanf("%s", str);
-	read_by_line ();
 
-//	for(int i = 0; i < index_deposit; i++)
-//		printf("%d ", deposit_queue[i]);
-//
-//	for(int i = 1; i < index_accs; i++)
+	// input and
+	read_file();
+
+	// for test
+//	for ( unsigned int i = 1; i <= index_accs; i++ )
 //		print_acc(accs[i]);
 //
-//	for(int i = 1; i < index_clients + 1; i++)
+//	for ( unsigned int i = 0; i <= index_clients; i++ )
 //		print_cli(clis[i]);
 
-	for(int i = 1; i < index_accs; i++)
+
+	for ( unsigned int i = 0; i < clis[0]->cur; i++ )
+		transaction_with_exclusive_lock(clis[0], i);
+
+	for ( unsigned int i = 1; i <= index_clients; i++ )
+	{
+		cli * cli_in_queue = clis[i];
+		unsigned int cli_in_queue_length = clis[i]->cur;
+		for ( unsigned int k = 0; k < cli_in_queue_length; k++ )
+			transaction_with_exclusive_lock(cli_in_queue, k);
+	}
+
+	for ( unsigned int i = 1; i <= index_accs; i++ )
 		print_acc_reduced(accs[i]);
 
 }
