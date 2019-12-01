@@ -1,0 +1,12 @@
+a1 type personal d 0 w 0 type 0 transactions 20 2 overdraft Y 40
+
+
+dep1 d a1 1
+
+
+
+
+c1 w a1 200
+c2 w a1 100
+c3 w a1 161
+c4 w a1 490

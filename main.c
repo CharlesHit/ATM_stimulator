@@ -1,18 +1,13 @@
 #include <stdio.h>
 #include <string.h>
-#include<pthread.h>
-#include<stdlib.h>
-#include<unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+#include <stdlib.h>
 #include "client.h"
 
 # define DEPOSITOR 0 // depositor is client 0
 
-int deposit_queue[1024];
-int index_deposit = 0;
+//int deposit_queue[1024];
+//int index_deposit = 0;
 int index_accs = 0;
-
 
 char str[64];
 
@@ -99,6 +94,7 @@ void read_file ()
 				int acc_id = atoi(string_to_id);
 				scanf("%s%c", str, &c);
 				int amount = atoi(str);
+				TOTAL_TRANS += 1;
 				trans_add(clis[id], 'd', acc_id, ERROR, amount);
 			} else if ( str[0] == 'w' )
 			{
@@ -107,6 +103,7 @@ void read_file ()
 				int acc_id = atoi(string_to_id);
 				scanf("%s%c", str, &c);
 				int amount = atoi(str);
+				TOTAL_TRANS += 1;
 				trans_add(clis[id], 'w', acc_id, ERROR, amount);
 			} else if ( str[0] == 't' )
 			{
@@ -116,7 +113,7 @@ void read_file ()
 				int acc_id_2 = atoi(memcpy(string_to_id, str + 1, sizeof(str)));
 				scanf("%s%c", str, &c);
 				int amount = atoi(str);
-
+				TOTAL_TRANS += 1;
 				trans_add(clis[id], 't', acc_id, acc_id_2, amount);
 			}
 			if ( c == 0 || c == '\n' )
@@ -126,6 +123,31 @@ void read_file ()
 		}
 		scanf("%s", str);
 	}
+}
+
+void * client_thread ( void * num )
+{
+	int *temp = ( int *) (num);
+	int temp2 = *temp;
+	int i = temp2 %(index_clients);
+	i < 0 ? i = -1 * 1 : i;
+	i = i + 1;
+
+	cli * cli_in_queue = clis[i];
+
+	while ( clis[i]->cur <= clis[i]->n)
+	{
+		pthread_mutex_lock(&lock);
+
+		// printf("client: %d trying...\n", i);
+		transaction_with_exclusive_lock(cli_in_queue, clis[i]->cur);
+
+		clis[i]->cur++;
+
+		pthread_mutex_unlock(&lock); // EXIT REGION
+	}
+
+	return ( void * ) NULL;
 }
 
 int main ()
@@ -138,27 +160,41 @@ int main ()
 	// input and
 	read_file();
 
-	// for test
+	// depositor deposit the money
+	for ( unsigned int i = 0; i < clis[0]->n; i++ )
+		transaction_with_exclusive_lock(clis[0], i);
+
+//	// for test
 //	for ( unsigned int i = 1; i <= index_accs; i++ )
 //		print_acc(accs[i]);
 //
 //	for ( unsigned int i = 0; i <= index_clients; i++ )
 //		print_cli(clis[i]);
 
-
-	for ( unsigned int i = 0; i < clis[0]->cur; i++ )
-		transaction_with_exclusive_lock(clis[0], i);
-
-	for ( unsigned int i = 1; i <= index_clients; i++ )
+	// Thread part
+	// create thread for each clients
+	pthread_t threads[index_clients];
+	if ( pthread_mutex_init(&lock, NULL) != 0 )
 	{
-		cli * cli_in_queue = clis[i];
-		unsigned int cli_in_queue_length = clis[i]->cur;
-		for ( unsigned int k = 0; k < cli_in_queue_length; k++ )
-			transaction_with_exclusive_lock(cli_in_queue, k);
+		printf("\n mutex init failed\n");
+		return 1;
 	}
+	// make the index = 1 to clients number
+	time_t t;
+	while(FINISHED_TRANS < TOTAL_TRANS)
+	{
+		// int thread_client = thread_cli_generate();
+		for(int i = 0; i < index_clients; i++)
+			pthread_create(&threads[i], NULL, &client_thread, &i);
+	}
+	for(int i = 0; i < index_clients; i++)
+		pthread_join(threads[i], NULL);
+
+	pthread_mutex_destroy(&lock);
+
+	fp = fopen ("assignment_3_output_file.txt","w");
 
 	for ( unsigned int i = 1; i <= index_accs; i++ )
 		print_acc_reduced(accs[i]);
-
 }
 

@@ -6,6 +6,7 @@
 #define CS3305_3_ACCOUNT_H
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <math.h>
 
 enum account_type { business = 0, personal = 1 };
@@ -14,6 +15,14 @@ enum account_type { business = 0, personal = 1 };
 #define personal 1
 
 #define cant_overdraft 0
+
+int _floor(float num)
+{
+	if ( (int)num - num < 0.00000001 )
+		return num;
+	else
+		return (int)num - 1;
+}
 
 typedef struct
 {
@@ -48,7 +57,7 @@ acc * init_account ( int id, int type, int fd, int fw, int ft, int MAX, int rema
 /*
  * add and over_draft_helper
  *
- * Do addition on an account, with money n and corresponding fee
+ * Do addition on an account, with money cur and corresponding fee
  *
  * Always cooperate with transaction_with_exclusive_lock(), since that function want to add
  *   money or withdraw and transfer money
@@ -78,19 +87,17 @@ int over_draft_helper ( acc * a, int over_draft, int pre_amount )
 	if ( previous >= 0 )
 		time_1 = 0;
 	else
-		time_1 = floor(1.0 * previous / OVER_PENALTY_PERIOD);
-	int time_2 = floor(1.0 * over / OVER_PENALTY_PERIOD);
-	if (over < OVER_MAX)
+		time_1 = _floor(1.0 * previous / OVER_PENALTY_PERIOD);
+	int time_2 = _floor(1.0 * over / OVER_PENALTY_PERIOD);
+	if ( over < OVER_MAX )
 		return ERROR;
-	else
-		if ( time_1 != time_2 )
-		{
-			int new_over_d = ( time_1 - time_2 ) * a->over_Draft_fee + over_draft;
-			// You have to do it RECURSIVELY! Why?
-			return over_draft_helper(a, new_over_d, over);
-		}
-		else
-			return over_draft;
+	else if ( time_1 != time_2 )
+	{
+		int new_over_d = ( time_1 - time_2 ) * a->over_Draft_fee + over_draft;
+		// You have to do it RECURSIVELY! Why?
+		return over_draft_helper(a, new_over_d, over);
+	} else
+		return over_draft;
 }
 
 int add ( acc * a, int n, int fee, int pre_amount )
@@ -119,8 +126,8 @@ int add ( acc * a, int n, int fee, int pre_amount )
 		if ( a->balance >= 0 )
 			time_1 = 0;
 		else
-			time_1 = floor(1.0 * a->balance / OVER_PENALTY_PERIOD);
-		int time_2 = floor(1.0 * over_money / OVER_PENALTY_PERIOD);
+			time_1 = _floor(1.0 * a->balance / OVER_PENALTY_PERIOD);
+		int time_2 = _floor(1.0 * over_money / OVER_PENALTY_PERIOD);
 
 		int over_draft_fee = 0;
 		if ( time_1 != time_2 )
@@ -131,8 +138,8 @@ int add ( acc * a, int n, int fee, int pre_amount )
 		// then calculate the overdraft fee.
 		// we use over_draft_helper to check the over_draft_fee
 		if (( over_draft_fee
-				= over_draft_helper(a, over_draft_fee, n - fee))
-		            != ERROR )
+				      = over_draft_helper(a, over_draft_fee, n - fee))
+		    != ERROR )
 		{
 			a->balance = a->balance + n - fee - over_draft_fee + pre_amount;
 		} else
