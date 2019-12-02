@@ -1,0 +1,3 @@
+a1 type business d 0 w 0 t 0 transactions 10 2 overdraft Y 500
+dep1 d a1 1
+c6 w a1 5000

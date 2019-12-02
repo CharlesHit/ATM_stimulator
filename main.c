@@ -192,7 +192,7 @@ int main ()
 
 	pthread_mutex_destroy(&lock);
 
-	fp = fopen ("assignment_3_output_file.txt","w");
+	fp = fopen ("output.txt","w");
 
 	for ( unsigned int i = 1; i <= index_accs; i++ )
 		print_acc_reduced(accs[i]);
